@@ -2,7 +2,6 @@
 Configuration settings for LinkedIn Profile Scraper.
 """
 import os
-from datetime import time
 
 # Operating hours (24-hour format)
 OPERATING_START_HOUR = 9  # 9:00 AM
