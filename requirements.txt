@@ -3,7 +3,6 @@
 # Web scraping and browser automation
 selenium==4.16.0
 webdriver-manager==4.0.1
-beautifulsoup4==4.12.2
 
 # Data handling
 pandas==2.1.4
@@ -13,9 +12,3 @@ python-dotenv==1.0.0
 
 # Time zone support
 pytz==2023.3
-
-# HTTP requests (optional, for advanced use cases)
-requests==2.31.0
-
-# Logging and utilities
-colorlog==6.8.0

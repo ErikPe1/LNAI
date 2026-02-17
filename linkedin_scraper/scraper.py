@@ -310,45 +310,37 @@ class LinkedInScraper:
         
         profiles_scraped = 0
         
-        while profiles_scraped < max_profiles:
+        # Get all profile links upfront
+        logger.info("Collecting profile links from search results...")
+        profile_links = self._get_profile_links(search_url)
+        
+        if not profile_links:
+            logger.warning("No profile links found")
+            return
+        
+        logger.info(f"Found {len(profile_links)} profile links to scrape")
+        
+        # Scrape each profile
+        for profile_url in profile_links:
+            if profiles_scraped >= max_profiles:
+                logger.info(f"Reached maximum profiles limit: {max_profiles}")
+                break
+            
             # Check operating hours before each profile
             if not is_within_operating_hours():
                 log_time_constraint_stop()
                 break
             
-            # Get profile links
-            profile_links = self._get_profile_links(search_url)
+            # Scrape profile
+            result = self.scrape_profile(profile_url)
             
-            if not profile_links:
-                logger.warning("No more profile links found")
-                break
+            if result:
+                profiles_scraped += 1
+                logger.info(f"Progress: {profiles_scraped}/{max_profiles} profiles scraped")
             
-            # Scrape each profile
-            for profile_url in profile_links:
-                if profiles_scraped >= max_profiles:
-                    break
-                
-                # Check operating hours again
-                if not is_within_operating_hours():
-                    log_time_constraint_stop()
-                    break
-                
-                # Scrape profile
-                result = self.scrape_profile(profile_url)
-                
-                if result:
-                    profiles_scraped += 1
-                    logger.info(f"Progress: {profiles_scraped}/{max_profiles} profiles scraped")
-                
-                # Random delay before next profile
-                if profiles_scraped < max_profiles:
-                    self._random_delay()
-            
-            # Navigate back to search for more profiles
-            if profiles_scraped < max_profiles and profile_links:
-                logger.info("Returning to search page for more profiles")
-                self.driver.get(search_url)
-                self._short_delay(2, 3)
+            # Random delay before next profile (but not after the last one)
+            if profiles_scraped < max_profiles and profiles_scraped < len(profile_links):
+                self._random_delay()
         
         logger.info(f"Scraping session completed. Total profiles scraped: {profiles_scraped}")
     

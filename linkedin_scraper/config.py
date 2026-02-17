@@ -2,6 +2,7 @@
 Configuration settings for LinkedIn Profile Scraper
 """
 
+import os
 import pytz
 
 # Operating hours configuration
@@ -37,7 +38,7 @@ HEADLESS_MODE = False  # Set to True to run browser in headless mode
 IMPLICIT_WAIT = 10  # Seconds to wait for elements
 
 # Data storage
-DATA_DIR = "data"
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 OUTPUT_FILE = "linkedin_profiles.csv"
 JSON_OUTPUT_FILE = "linkedin_profiles.json"
 
