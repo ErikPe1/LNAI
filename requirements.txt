@@ -1,0 +1,14 @@
+# LinkedIn Profile Scraper Dependencies
+
+# Web scraping and browser automation
+selenium==4.16.0
+webdriver-manager==4.0.1
+
+# Data handling
+pandas==2.1.4
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Time zone support
+pytz==2023.3
