@@ -1,1 +1,88 @@
-"""LinkedIn Profile Scraper with Mouse Control - Auto-configured for Sales Navigator\nimport pyautogui\nimport time\nimport json\nimport random\nfrom datetime import datetime\nfrom pynput import keyboard\nimport logging\nimport os\n\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%(asctime)s - %(levelname)s - %(message)s',\n    handlers=[\n        logging.FileHandler('linkedin_scraper.log'),\n        logging.StreamHandler()\n    ]\n)\nlogger = logging.getLogger(__name__)\n\n# Configuration\nOPERATING_HOURS = {"start": (9, 0), "end": (16, 30)}\nMIN_DELAY = 60\nMAX_DELAY = 600\nSTARTUP_DELAY = 10\nSCROLL_AFTER_PROFILES = 5\n\nstop_scraping = False\n\ndef on_press(key):\n    global stop_scraping\n    if key == keyboard.Key.esc:\n        logger.info("ESC pressed - stopping")\n        stop_scraping = True\n        return False\n\ndef is_operating_hours():\n    now = datetime.now()\n    if now.weekday() >= 5:\n        return False\n    current_time = (now.hour, now.minute)\n    return OPERATING_HOURS["start"] <= current_time <= OPERATING_HOURS["end"]\n\ndef human_mouse_move(x, y):\n    current_x, current_y = pyautogui.position()\n    steps = random.randint(15, 25)\n    ctrl_x = (current_x + x) / 2 + random.randint(-100, 100)\n    ctrl_y = (current_y + y) / 2 + random.randint(-50, 50)\n    for i in range(steps):\n        t = i / steps\n        bx = (1-t)**2 * current_x + 2*(1-t)*t * ctrl_x + t**2 * x\n        by = (1-t)**2 * current_y + 2*(1-t)*t * ctrl_y + t**2 * y\n        pyautogui.moveTo(bx, by, duration=0.01)\n        time.sleep(random.uniform(0.001, 0.01))\n\ndef extract_visible_text():\n    try:\n        screenshot = pyautogui.screenshot()\n        data = {"timestamp": datetime.now().isoformat(), "screenshot_saved": f"data/screenshot_{int(time.time())}.png"}\n        screenshot.save(data["screenshot_saved"])\n        return data\n    except Exception as e:\n        logger.error(f"Error: {e}")\n        return None\n\ndef scrape_profile_at_position(x, y, index):\n    try:\n        logger.info(f"Profile {index}: Moving to ({x}, {y})")\n        human_mouse_move(x, y)\n        time.sleep(random.uniform(0.3, 0.7))\n        pyautogui.click()\n        logger.info(f"Profile {index}: Loading...")\n        time.sleep(random.uniform(4, 6))\n        logger.info(f"Profile {index}: Scrolling...")\n        for _ in range(random.randint(6, 10)):\n            pyautogui.scroll(-random.randint(300, 500))\n            time.sleep(random.uniform(0.8, 1.5))\n        profile_data = extract_visible_text()\n        pyautogui.press('backspace')\n        time.sleep(random.uniform(3, 4))\n        return profile_data\n    except Exception as e:\n        logger.error(f"Error: {e}")\n        return None\n\ndef scroll_to_next_profiles():\n    logger.info("Scrolling...")\n    for _ in range(3):\n        pyautogui.scroll(-400)\n        time.sleep(random.uniform(1, 2))\n\ndef save_data(profiles):\n    filename = f"data/profiles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"\n    try:\n        with open(filename, 'w', encoding='utf-8') as f:\n            json.dump(profiles, f, indent=2, ensure_ascii=False)\n        logger.info(f"Saved: {filename}")\n    except Exception as e:\n        logger.error(f"Error: {e}")\n\ndef main():\n    global stop_scraping\n    logger.info("="*60)\n    logger.info("LinkedIn Sales Navigator Profile Scraper")\n    logger.info("="*60)\n    listener = keyboard.Listener(on_press=on_press)\n    listener.start()\n    for i in range(STARTUP_DELAY, 0, -1):\n        print(f"{i}...", end=" ", flush=True)\n        time.sleep(1)\n    print("\n")\n    all_profiles = []\n    profiles_scraped = 0\n    max_profiles = 50\n    base_profile_positions = [(400, 280), (400, 405), (400, 555), (400, 680), (400, 800)]\n    profile_index = 0\n    while profiles_scraped < max_profiles:\n        if stop_scraping or not is_operating_hours():\n            break\n        position_index = profile_index % len(base_profile_positions)\n        x, y = base_profile_positions[position_index]\n        profile_data = scrape_profile_at_position(x, y, profiles_scraped + 1)\n        if profile_data:\n            all_profiles.append(profile_data)\n            profiles_scraped += 1\n            if profiles_scraped % 5 == 0:\n                save_data(all_profiles)\n        profile_index += 1\n        if profile_index > 0 and profile_index % SCROLL_AFTER_PROFILES == 0:\n            scroll_to_next_profiles()\n        if profiles_scraped < max_profiles:\n            delay = random.randint(MIN_DELAY, MAX_DELAY)\n            logger.info(f"Waiting {delay}s...")\n            time.sleep(delay)\n    save_data(all_profiles)\n    logger.info(f"Complete! Total: {profiles_scraped}")\n    listener.stop()\n\nif __name__ == "__main__":\n    os.makedirs('data', exist_ok=True)\n    if not is_operating_hours():\n        logger.error("Not within operating hours")\n        exit(1)\n    main()\n"""
+import pyautogui
+import time
+import json
+import random
+from datetime import datetime
+from pynput import keyboard
+import logging
+import os
+
+# Configuration Variables
+OPERATING_HOURS_START = (9, 0)
+OPERATING_HOURS_END = (16, 30)
+MIN_DELAY = 60
+MAX_DELAY = 600
+STARTUP_DELAY = 10
+SCROLL_AFTER_PROFILES = 5
+
+# Function to handle ESC key
+def on_press(key):
+    if key == keyboard.Key.esc:
+        return False
+
+# Function to check if current time is within operating hours
+def is_operating_hours():
+    now = datetime.now()
+    return (now.weekday() < 5) and (OPERATING_HOURS_START[0] <= now.hour < OPERATING_HOURS_END[0] or (now.hour == OPERATING_HOURS_END[0] and now.minute <= OPERATING_HOURS_END[1]))
+
+# Function to move mouse with human-like behavior using bezier curves
+def human_mouse_move(start, end, steps):
+    for i in range(steps):
+        interpolated_x = int(start[0] + (end[0] - start[0]) * (i / steps))
+        interpolated_y = int(start[1] + (end[1] - start[1]) * (i / steps))
+        pyautogui.moveTo(interpolated_x, interpolated_y)
+        time.sleep(random.uniform(0.01, 0.1))
+
+# Function to extract visible text and save it as a screenshot
+def extract_visible_text():
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    screenshot_path = 'data/screenshot_{}.png'.format(int(time.time()))
+    screenshot = pyautogui.screenshot()
+    screenshot.save(screenshot_path)
+    logging.info('Saved screenshot to {}'.format(screenshot_path))
+
+# Function to scrape a profile at a specific position
+def scrape_profile_at_position(position):
+    pyautogui.click(position)
+    time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
+    extract_visible_text()
+    # Scroll and navigate back
+    for _ in range(random.randint(6, 10)):
+        pyautogui.scroll(-300)
+        time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
+    pyautogui.press('backspace')
+
+# Function to scroll to next profiles
+def scroll_to_next_profiles():
+    for _ in range(3):
+        pyautogui.scroll(-300)
+        time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
+
+# Function to save data to a JSON file
+def save_data(data):
+    with open('data/scraped_data.json', 'w') as json_file:
+        json.dump(data, json_file)
+    logging.info('Data saved to data/scraped_data.json')
+
+# Main function
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    profiles_data = []
+    base_profile_positions = [(400, 280), (400, 405), (400, 555), (400, 680), (400, 800)]
+    profile_count = 0
+    while profile_count < 50:
+        if is_operating_hours():
+            for position in base_profile_positions:
+                scrape_profile_at_position(position)
+                profile_count += 1
+                if profile_count % SCROLL_AFTER_PROFILES == 0:
+                    scroll_to_next_profiles()
+                if profile_count % 5 == 0:
+                    save_data(profiles_data)
+        else:
+            logging.info('Outside of operating hours. Waiting...')
+            time.sleep(60)
+    save_data(profiles_data)
