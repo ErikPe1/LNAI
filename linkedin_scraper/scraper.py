@@ -1,4 +1,4 @@
-"""LinkedIn Profile Scraper - Extracts text to Account_Outputs"""
+"""LinkedIn Sales Navigator - Right Panel Profile Scraper"""
 import pyautogui
 import time
 import json
@@ -10,7 +10,6 @@ import os
 
 try:
     import pytesseract
-    from PIL import Image
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
@@ -25,12 +24,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configuration
 OPERATING_HOURS = {"start": (9, 0), "end": (16, 30)}
 MIN_DELAY = 60
 MAX_DELAY = 600
 STARTUP_DELAY = 10
-SCROLL_AFTER_PROFILES = 5
 OUTPUT_DIR = "Account_Outputs"
 
 stop_scraping = False
@@ -38,24 +35,19 @@ stop_scraping = False
 def on_press(key):
     global stop_scraping
     if key == keyboard.Key.esc:
-        logger.info("ESC pressed - stopping")
+        logger.info("ESC - stopping")
         stop_scraping = True
         return False
 
 def is_operating_hours():
     now = datetime.now()
-    if now.weekday() >= 5:
-        return False
-    current_time = (now.hour, now.minute)
-    in_hours = OPERATING_HOURS["start"] <= current_time <= OPERATING_HOURS["end"]
-    logger.info(f"Time: {now.strftime('%A %I:%M %p')} - In hours: {in_hours}")
-    return in_hours
+    return now.weekday() < 5 and OPERATING_HOURS["start"] <= (now.hour, now.minute) <= OPERATING_HOURS["end"]
 
 def human_mouse_move(x, y):
     current_x, current_y = pyautogui.position()
     steps = random.randint(15, 25)
-    ctrl_x = (current_x + x) / 2 + random.randint(-100, 100)
-    ctrl_y = (current_y + y) / 2 + random.randint(-50, 50)
+    ctrl_x = (current_x + x) / 2 + random.randint(-50, 50)
+    ctrl_y = (current_y + y) / 2 + random.randint(-30, 30)
     
     for i in range(steps):
         t = i / steps
@@ -64,116 +56,118 @@ def human_mouse_move(x, y):
         pyautogui.moveTo(bx, by, duration=0.01)
         time.sleep(random.uniform(0.001, 0.01))
 
-def extract_profile_text():
+def extract_right_panel():
+    """Extract text from right panel only"""
     try:
         screenshot = pyautogui.screenshot()
+        screen_width, screen_height = pyautogui.size()
+        
+        # Right panel starts at ~70% of screen width
+        right_x = int(screen_width * 0.7)
+        right_panel = screenshot.crop((right_x, 0, screen_width, screen_height))
         
         if OCR_AVAILABLE:
-            text = pytesseract.image_to_string(screenshot)
-            lines = [line.strip() for line in text.split('\n') if line.strip()]
-            return {
-                "timestamp": datetime.now().isoformat(),
-                "text_lines": lines,
-                "full_text": text
-            }
+            text = pytesseract.image_to_string(right_panel)
+            lines = [l.strip() for l in text.split('\n') if l.strip()]
+            logger.info(f"Extracted {len(lines)} lines")
+            return {"timestamp": datetime.now().isoformat(), "text": lines}
         else:
-            return {
-                "timestamp": datetime.now().isoformat(),
-                "text_lines": ["OCR not available"],
-                "full_text": ""
-            }
+            return {"timestamp": datetime.now().isoformat(), "text": ["OCR unavailable"]}
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Extract error: {e}")
         return None
 
-def scrape_profile_at_position(x, y, index):
+def scroll_right_panel():
+    """Scroll the right panel"""
+    screen_width = pyautogui.size()[0]
+    panel_x = int(screen_width * 0.85)
+    panel_y = 400
+    
+    logger.info("Scrolling right panel...")
+    pyautogui.moveTo(panel_x, panel_y, duration=0.5)
+    time.sleep(0.5)
+    
+    for i in range(random.randint(8, 12)):
+        pyautogui.scroll(random.randint(-300, -500))
+        time.sleep(random.uniform(0.8, 1.5))
+
+def close_panel():
+    """Close right panel - click X button"""
+    screen_width = pyautogui.size()[0]
+    close_x = int(screen_width * 0.98)  # X button at far right
+    close_y = 247  # Based on your screenshot
+    
+    logger.info("Closing panel...")
+    human_mouse_move(close_x, close_y)
+    time.sleep(0.3)
+    pyautogui.click()
+    time.sleep(random.uniform(1, 2))
+
+def scrape_profile(x, y, index):
     try:
-        logger.info(f"\n{'='*60}")
-        logger.info(f"PROFILE {index}")
-        logger.info(f"Moving to ({x}, {y})")
-        
+        logger.info(f"Profile {index}: Click at ({x}, {y})")
         human_mouse_move(x, y)
         time.sleep(random.uniform(0.5, 1.0))
-        
-        logger.info("Clicking...")
         pyautogui.click()
         
-        logger.info("Loading...")
-        time.sleep(random.uniform(5, 7))
-        
-        logger.info("Scrolling...")
-        for i in range(random.randint(6, 10)):
-            pyautogui.scroll(-random.randint(300, 500))
-            time.sleep(random.uniform(0.8, 1.5))
-        
-        logger.info("Extracting text...")
-        profile_data = extract_profile_text()
-        
-        logger.info("Going back...")
-        pyautogui.press('backspace')
+        logger.info(f"Profile {index}: Panel loading...")
         time.sleep(random.uniform(3, 5))
         
-        logger.info(f"✅ Profile {index} done")
-        return profile_data
+        scroll_right_panel()
         
+        logger.info(f"Profile {index}: Extracting...")
+        data = extract_right_panel()
+        
+        close_panel()
+        
+        return data
     except Exception as e:
         logger.error(f"Error: {e}")
         return None
 
-def scroll_to_next_profiles():
-    logger.info("Scrolling for more...")
+def scroll_main_list():
+    """Scroll main results list"""
+    logger.info("Scrolling main list...")
+    screen_width = pyautogui.size()[0]
+    list_x = int(screen_width * 0.4)
+    
+    pyautogui.moveTo(list_x, 400, duration=0.5)
+    time.sleep(0.5)
+    
     for _ in range(3):
         pyautogui.scroll(-400)
         time.sleep(random.uniform(1, 2))
 
-def save_profiles(profiles):
+def save_data(profiles):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    json_file = os.path.join(OUTPUT_DIR, f"linkedin_profiles_{timestamp}.json")
-    txt_file = os.path.join(OUTPUT_DIR, f"linkedin_profiles_{timestamp}.txt")
+    json_file = f"{OUTPUT_DIR}/profiles_{timestamp}.json"
+    txt_file = f"{OUTPUT_DIR}/profiles_{timestamp}.txt"
     
     try:
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(profiles, f, indent=2, ensure_ascii=False)
-        logger.info(f"✅ Saved: {json_file}")
+        logger.info(f"✅ JSON: {json_file}")
         
         with open(txt_file, 'w', encoding='utf-8') as f:
-            f.write(f"LinkedIn Profile Data\n")
-            f.write(f"{'='*80}\n")
-            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Total: {len(profiles)}\n")
-            f.write(f"{'='*80}\n\n")
-            
-            for i, profile in enumerate(profiles, 1):
-                f.write(f"\nPROFILE #{i}\n")
-                f.write(f"{'-'*80}\n")
-                if 'text_lines' in profile:
-                    for line in profile['text_lines']:
-                        f.write(f"{line}\n")
-                f.write(f"\n{'='*80}\n")
-        
-        logger.info(f"✅ Saved: {txt_file}")
-        
+            f.write(f"LinkedIn Profiles\n{datetime.now()}\nTotal: {len(profiles)}\n{'='*80}\n\n")
+            for i, p in enumerate(profiles, 1):
+                f.write(f"PROFILE {i}\n{p.get('timestamp')}\n{'-'*80}\n")
+                for line in p.get('text', []):
+                    f.write(f"{line}\n")
+                f.write(f"\n{'='*80}\n\n")
+        logger.info(f"✅ TXT: {txt_file}")
     except Exception as e:
-        logger.error(f"Error saving: {e}")
+        logger.error(f"Save error: {e}")
 
 def main():
     global stop_scraping
     
-    logger.info("\n" + "="*60)
-    logger.info("LINKEDIN SCRAPER")
     logger.info("="*60)
-    logger.info(f"Output: {OUTPUT_DIR}/")
-    logger.info(f"OCR: {OCR_AVAILABLE}")
+    logger.info("LinkedIn Sales Navigator Scraper")
     logger.info("="*60)
-    
-    if not is_operating_hours():
-        logger.error("❌ Outside operating hours (Mon-Fri 9am-4:30pm)")
-        input("Press Enter to exit...")
-        exit(1)
-    
-    logger.info(f"\nSwitch to LinkedIn in {STARTUP_DELAY} seconds...")
-    logger.info("Press ESC to stop\n")
+    logger.info(f"Switch to LinkedIn in {STARTUP_DELAY}s")
+    logger.info("Press ESC to stop")
+    logger.info("="*60)
     
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
@@ -183,63 +177,57 @@ def main():
         time.sleep(1)
     print("\n")
     
-    logger.info("🚀 STARTING\n")
-    
-    all_profiles = []
-    profiles_scraped = 0
+    profiles = []
+    count = 0
     max_profiles = 50
     
-    base_profile_positions = [
-        (400, 280),
-        (400, 405),
-        (400, 555),
-        (400, 680),
-        (400, 800),
+    # Profile name positions (left side list)
+    positions = [
+        (410, 275),   # Maylin Barcena
+        (410, 407),   # Darien Paez
+        (410, 555),   # Mariela Perez
+        (410, 670),   # Idelvys Garcia
+        (410, 790),   # Maria Valentina
     ]
     
-    profile_index = 0
+    idx = 0
     
-    while profiles_scraped < max_profiles:
+    while count < max_profiles:
         if stop_scraping or not is_operating_hours():
             break
         
-        position_index = profile_index % len(base_profile_positions)
-        x, y = base_profile_positions[position_index]
+        pos_idx = idx % len(positions)
+        x, y = positions[pos_idx]
         
-        profile_data = scrape_profile_at_position(x, y, profiles_scraped + 1)
+        data = scrape_profile(x, y, count + 1)
         
-        if profile_data:
-            all_profiles.append(profile_data)
-            profiles_scraped += 1
-            logger.info(f"Progress: {profiles_scraped}/{max_profiles}")
+        if data:
+            profiles.append(data)
+            count += 1
+            logger.info(f"✅ Scraped {count}/{max_profiles}")
             
-            if profiles_scraped % 5 == 0:
-                save_profiles(all_profiles)
+            if count % 5 == 0:
+                save_data(profiles)
         
-        profile_index += 1
+        idx += 1
         
-        if profile_index % SCROLL_AFTER_PROFILES == 0:
-            scroll_to_next_profiles()
+        if idx % 5 == 0:
+            scroll_main_list()
         
-        if profiles_scraped < max_profiles:
+        if count < max_profiles:
             delay = random.randint(MIN_DELAY, MAX_DELAY)
-            logger.info(f"Waiting {delay}s ({delay/60:.1f}m)...\n")
+            logger.info(f"⏳ Waiting {delay}s...")
             time.sleep(delay)
     
-    save_profiles(all_profiles)
-    logger.info(f"\n✅ COMPLETE! {profiles_scraped} profiles")
-    logger.info(f"Saved to: {OUTPUT_DIR}/\n")
+    save_data(profiles)
+    logger.info(f"✅ Done! {count} profiles → {OUTPUT_DIR}/")
     listener.stop()
 
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
     if not OCR_AVAILABLE:
-        logger.warning("⚠️  OCR not installed - install: pip install pytesseract pillow\n")
-    
-    try:
-        main()
-    except KeyboardInterrupt:
-        logger.info("\n⚠️  Stopped by user")
-    except Exception as e:
-        logger.error(f"\n❌ ERROR: {e}")
+        logger.warning("Install OCR: pip install pytesseract pillow")
+    if not is_operating_hours():
+        logger.error("Not within hours (Mon-Fri 9am-4:30pm)")
+        exit(1)
+    main()
