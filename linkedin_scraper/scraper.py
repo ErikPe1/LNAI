@@ -183,7 +183,7 @@ def main():
     
     # Profile name positions (left side list)
     positions = [
-        (422, 349),   # Maylin Barcena
+        (500, 349),   # Maylin Barcena
         (422, 512),   # Darien Paez
         (422, 675),   # Mariela Perez
         (422, 838),   # Idelvys Garcia
