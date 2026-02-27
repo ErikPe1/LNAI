@@ -181,14 +181,14 @@ def main():
     count = 0
     max_profiles = 50
     
-    # Profile name positions (adjusted lower)
-positions = [
-    (410, 290),   # Maylin Barcena (was 275, now +15)
-    (410, 422),   # Darien Paez (was 407, now +15)
-    (410, 570),   # Mariela Perez (was 555, now +15)
-    (410, 685),   # Idelvys Garcia (was 670, now +15)
-    (410, 805),   # Maria Valentina (was 790, now +15)
-]
+    # Profile name positions (left side list)
+    positions = [
+        (410, 290),   # Maylin Barcena
+        (410, 422),   # Darien Paez
+        (410, 570),   # Mariela Perez
+        (410, 685),   # Idelvys Garcia
+        (410, 805),   # Maria Valentina
+    ]
     
     idx = 0
     
