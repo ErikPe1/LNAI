@@ -183,11 +183,11 @@ def main():
     
     # Profile name positions (left side list)
     positions = [
-        (410, 290),   # Maylin Barcena
-        (410, 422),   # Darien Paez
-        (410, 570),   # Mariela Perez
-        (410, 685),   # Idelvys Garcia
-        (410, 805),   # Maria Valentina
+        (422, 349),   # Maylin Barcena
+        (422, 512),   # Darien Paez
+        (422, 675),   # Mariela Perez
+        (422, 838),   # Idelvys Garcia
+        (422, 1001),   # Maria Valentina
     ]
     
     idx = 0
