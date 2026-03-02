@@ -98,7 +98,7 @@ def scroll_right_panel():
 def close_panel():
     """Close right panel - click X button"""
     screen_width = pyautogui.size()[0]
-    close_x = int(screen_width * 0.98)
+    close_x = 1896
     close_y = 311
     
     logger.info("Closing panel...")
