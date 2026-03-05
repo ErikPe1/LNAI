@@ -1,4 +1,4 @@
-"""LinkedIn Sales Navigator - Full Profile Scraper (Fixed)"""
+"""LinkedIn Sales Navigator - Full Profile Scraper (Fixed Coordinates)"""
 import pyautogui
 import time
 import json
@@ -33,6 +33,11 @@ MIN_DELAY = 60
 MAX_DELAY = 600
 STARTUP_DELAY = 10
 OUTPUT_DIR = "Account_Outputs"
+
+# Fixed coordinates
+PROFILE_NAME_X = 424
+ARROW_BUTTON_X = 1860
+ARROW_BUTTON_Y = 313  # Arrow button stays at same Y position
 
 stop_scraping = False
 
@@ -75,30 +80,28 @@ def extract_full_screen():
         logger.error(f"Extract error: {e}")
         return []
 
-def scrape_profile_full_page(profile_name_y, arrow_y, index):
+def scrape_profile_full_page(profile_y, index):
     """Click profile, click arrow to open new tab, scrape, close tab"""
     try:
         # STEP 1: Click profile name to open side panel
-        profile_x = 242
-        logger.info(f"Profile {index}: Clicking profile name at ({profile_x}, {profile_name_y})")
-        human_mouse_move(profile_x, profile_name_y)
+        logger.info(f"Profile {index}: Clicking profile at ({PROFILE_NAME_X}, {profile_y})")
+        human_mouse_move(PROFILE_NAME_X, profile_y)
         time.sleep(random.uniform(0.5, 0.8))
         pyautogui.click()
         time.sleep(random.uniform(2, 3))  # Wait for side panel to open
         
-        # STEP 2: Click arrow button to open in new tab
-        arrow_x = 1860
-        logger.info(f"Profile {index}: Clicking arrow at ({arrow_x}, {arrow_y})")
-        human_mouse_move(arrow_x, arrow_y)
+        # STEP 2: Click arrow button (always at same position!)
+        logger.info(f"Profile {index}: Clicking arrow at ({ARROW_BUTTON_X}, {ARROW_BUTTON_Y})")
+        human_mouse_move(ARROW_BUTTON_X, ARROW_BUTTON_Y)
         time.sleep(random.uniform(0.5, 0.8))
         pyautogui.click()
         
-        # STEP 3: Wait for new tab to open (NO Ctrl+Tab!)
-        logger.info(f"Profile {index}: Waiting for new tab to open...")
-        time.sleep(random.uniform(4, 5))  # Longer wait for tab to open and load
+        # STEP 3: Wait for new tab to open
+        logger.info(f"Profile {index}: Waiting for new tab...")
+        time.sleep(random.uniform(4, 5))
         
-        # STEP 4: Now we're on the profile page - scroll and extract
-        logger.info(f"Profile {index}: Starting extraction...")
+        # STEP 4: Scroll and extract
+        logger.info(f"Profile {index}: Extracting...")
         
         all_text = []
         scroll_count = random.randint(10, 15)
@@ -106,11 +109,9 @@ def scrape_profile_full_page(profile_name_y, arrow_y, index):
         for scroll_num in range(scroll_count):
             logger.info(f"Profile {index}: Scroll {scroll_num + 1}/{scroll_count}")
             
-            # Extract text at current position
             text_lines = extract_full_screen()
             all_text.extend(text_lines)
             
-            # Scroll down
             pyautogui.scroll(-random.randint(300, 500))
             time.sleep(random.uniform(1.5, 2.0))
         
@@ -133,12 +134,12 @@ def scrape_profile_full_page(profile_name_y, arrow_y, index):
             "total_lines": len(unique_text)
         }
         
-        # STEP 5: Close the tab
+        # STEP 5: Close tab
         logger.info(f"Profile {index}: Closing tab...")
         pyautogui.hotkey('ctrl', 'w')
         time.sleep(random.uniform(2, 3))
         
-        logger.info(f"Profile {index}: Complete! Extracted {len(unique_text)} lines")
+        logger.info(f"Profile {index}: Done! {len(unique_text)} lines")
         
         return profile_data
         
@@ -152,8 +153,8 @@ def scrape_profile_full_page(profile_name_y, arrow_y, index):
         return None
 
 def scroll_main_list():
-    """Scroll search results list"""
-    logger.info("Scrolling main list...")
+    """Scroll search results"""
+    logger.info("Scrolling results...")
     pyautogui.moveTo(500, 400, duration=0.5)
     time.sleep(0.5)
     
@@ -196,8 +197,10 @@ def main():
     global stop_scraping
     
     logger.info("="*60)
-    logger.info("LinkedIn Sales Navigator - Full Profile Scraper")
+    logger.info("LinkedIn Sales Navigator Scraper")
     logger.info("="*60)
+    logger.info(f"Profile name X: {PROFILE_NAME_X}")
+    logger.info(f"Arrow button: ({ARROW_BUTTON_X}, {ARROW_BUTTON_Y})")
     logger.info(f"Switch to LinkedIn in {STARTUP_DELAY}s")
     logger.info("Press ESC to stop")
     logger.info("="*60)
@@ -214,14 +217,13 @@ def main():
     count = 0
     max_profiles = 50
     
-    # Profile positions based on your exact coordinates
-    # profile_name_y, arrow_y (arrow is 31 pixels above name)
-    profile_positions = [
-        {"name_y": 344, "arrow_y": 313},   # First profile
-        {"name_y": 444, "arrow_y": 413},   # Profile 2
-        {"name_y": 544, "arrow_y": 513},   # Profile 3
-        {"name_y": 644, "arrow_y": 613},   # Profile 4
-        {"name_y": 744, "arrow_y": 713},   # Profile 5
+    # Y positions of profile names (X is always 424)
+    profile_y_positions = [
+        344,   # First profile (your exact coordinate)
+        444,   # Second profile (estimated ~100px down)
+        544,   # Third profile
+        644,   # Fourth profile
+        744,   # Fifth profile
     ]
     
     idx = 0
@@ -230,10 +232,10 @@ def main():
         if stop_scraping or not is_operating_hours():
             break
         
-        pos_idx = idx % len(profile_positions)
-        pos = profile_positions[pos_idx]
+        pos_idx = idx % len(profile_y_positions)
+        profile_y = profile_y_positions[pos_idx]
         
-        data = scrape_profile_full_page(pos["name_y"], pos["arrow_y"], count + 1)
+        data = scrape_profile_full_page(profile_y, count + 1)
         
         if data:
             profiles.append(data)
