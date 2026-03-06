@@ -1,4 +1,4 @@
-"""LinkedIn Sales Navigator - Full Profile Scraper (New Tab Method)"""
+"""LinkedIn Sales Navigator - Full Profile Scraper (Three-Dot Menu Method)"""
 import pyautogui
 import time
 import json
@@ -44,9 +44,8 @@ def on_press(key):
         return False
 
 def is_operating_hours():
-    """Check if within Mon-Fri, 9am-4:30pm - NO PYTZ NEEDED"""
     now = datetime.now()
-    if now.weekday() >= 5:  # Saturday=5, Sunday=6
+    if now.weekday() >= 5:
         return False
     current_time = (now.hour, now.minute)
     return OPERATING_HOURS["start"] <= current_time <= OPERATING_HOURS["end"]
@@ -65,14 +64,13 @@ def human_mouse_move(x, y):
         time.sleep(random.uniform(0.001, 0.01))
 
 def extract_full_screen():
-    """Extract text from entire screen"""
     try:
         screenshot = pyautogui.screenshot()
         
         if OCR_AVAILABLE:
             text = pytesseract.image_to_string(screenshot)
             lines = [l.strip() for l in text.split('\n') if l.strip()]
-            logger.info(f"Extracted {len(lines)} lines from screen")
+            logger.info(f"Extracted {len(lines)} lines")
             return lines
         else:
             return ["OCR unavailable"]
@@ -80,27 +78,35 @@ def extract_full_screen():
         logger.error(f"Extract error: {e}")
         return []
 
-def click_arrow_button(profile_y):
-    """Click the arrow button to open in new tab"""
-    arrow_x = 1415
-    arrow_y = profile_y
+def open_profile_in_new_tab(profile_name_x, profile_name_y):
+    """
+    Click on profile name, then right-click and select 'Open in new tab'
+    OR use the three-dot menu
+    """
+    logger.info(f"Opening profile at ({profile_name_x}, {profile_name_y})")
     
-    logger.info(f"Clicking arrow button at ({arrow_x}, {arrow_y})")
-    human_mouse_move(arrow_x, arrow_y)
+    # Method 1: Click profile name with Ctrl held (opens in new tab)
+    human_mouse_move(profile_name_x, profile_name_y)
     time.sleep(random.uniform(0.3, 0.5))
+    
+    # Hold Ctrl and click to open in new tab
+    pyautogui.keyDown('ctrl')
     pyautogui.click()
+    pyautogui.keyUp('ctrl')
+    
     time.sleep(random.uniform(2, 3))
 
-def scrape_profile_full_page(profile_y, index):
+def scrape_profile_full_page(profile_name_x, profile_name_y, index):
     """Open profile in new tab, scrape entire page, close tab"""
     try:
-        logger.info(f"Profile {index}: Opening in new tab...")
+        logger.info(f"Profile {index}: Opening profile name in new tab...")
         
-        click_arrow_button(profile_y)
+        # Ctrl+Click on profile name to open in new tab
+        open_profile_in_new_tab(profile_name_x, profile_name_y)
         
         logger.info(f"Profile {index}: Switching to new tab...")
         pyautogui.hotkey('ctrl', 'tab')
-        time.sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(3, 4))
         
         logger.info(f"Profile {index}: Scrolling through profile...")
         
@@ -137,6 +143,10 @@ def scrape_profile_full_page(profile_y, index):
         pyautogui.hotkey('ctrl', 'w')
         time.sleep(random.uniform(1, 2))
         
+        # Switch back to main tab
+        pyautogui.hotkey('ctrl', 'shift', 'tab')
+        time.sleep(random.uniform(0.5, 1))
+        
         logger.info(f"Profile {index}: Returned to search results")
         
         return profile_data
@@ -151,7 +161,6 @@ def scrape_profile_full_page(profile_y, index):
         return None
 
 def scroll_main_list():
-    """Scroll main results list"""
     logger.info("Scrolling main list...")
     screen_width = pyautogui.size()[0]
     list_x = int(screen_width * 0.4)
@@ -202,7 +211,7 @@ def main():
     logger.info("="*60)
     logger.info(f"Switch to LinkedIn in {STARTUP_DELAY}s")
     logger.info("Press ESC to stop")
-    logger.info("Opens profiles in new tabs for full extraction")
+    logger.info("Ctrl+Click on profile names to open in new tabs")
     logger.info("="*60)
     
     listener = keyboard.Listener(on_press=on_press)
@@ -217,12 +226,14 @@ def main():
     count = 0
     max_profiles = 50
     
-    positions = [
-        280,
-        380,
-        525,
-        670,
-        815,
+    # Profile name positions (X=400, Y varies)
+    # Based on your screenshot
+    profile_positions = [
+        (400, 265),   # Maylin Barcena
+        (400, 390),   # Darien Paez  
+        (400, 535),   # Mariela Perez
+        (400, 645),   # Idelvys Garcia
+        (400, 770),   # Maria Valentina
     ]
     
     idx = 0
@@ -231,10 +242,10 @@ def main():
         if stop_scraping or not is_operating_hours():
             break
         
-        pos_idx = idx % len(positions)
-        profile_y = positions[pos_idx]
+        pos_idx = idx % len(profile_positions)
+        x, y = profile_positions[pos_idx]
         
-        data = scrape_profile_full_page(profile_y, count + 1)
+        data = scrape_profile_full_page(x, y, count + 1)
         
         if data:
             profiles.append(data)
