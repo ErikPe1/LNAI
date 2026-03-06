@@ -1,7 +1,7 @@
 import time
 import json
 import random
-import pytz
+# import pytz
 import datetime
 import pyautogui
 import cv2
