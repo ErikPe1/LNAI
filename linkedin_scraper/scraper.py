@@ -11,8 +11,8 @@ import pytesseract
 # Define the coordinates for profile name and arrow button
 PROFILE_X = 424
 PROFILE_Y_POSITIONS = [344, 444, 544, 644, 744]
-ARROW_X = 1860
-ARROW_Y = 313
+ARROW_X = 1862
+ARROW_Y = 323
 
 # Operating hours
 START_HOUR = 9  # 9 AM
