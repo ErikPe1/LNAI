@@ -1,4 +1,4 @@
-"""LinkedIn Sales Navigator - Full Profile Scraper (Three-Dot Menu Method)"""
+"""LinkedIn Sales Navigator - Full Profile Scraper (Adjusted Coordinates)"""
 import pyautogui
 import time
 import json
@@ -79,13 +79,8 @@ def extract_full_screen():
         return []
 
 def open_profile_in_new_tab(profile_name_x, profile_name_y):
-    """
-    Click on profile name, then right-click and select 'Open in new tab'
-    OR use the three-dot menu
-    """
-    logger.info(f"Opening profile at ({profile_name_x}, {profile_name_y})")
+    logger.info(f"Ctrl+Clicking profile at ({profile_name_x}, {profile_name_y})")
     
-    # Method 1: Click profile name with Ctrl held (opens in new tab)
     human_mouse_move(profile_name_x, profile_name_y)
     time.sleep(random.uniform(0.3, 0.5))
     
@@ -97,11 +92,9 @@ def open_profile_in_new_tab(profile_name_x, profile_name_y):
     time.sleep(random.uniform(2, 3))
 
 def scrape_profile_full_page(profile_name_x, profile_name_y, index):
-    """Open profile in new tab, scrape entire page, close tab"""
     try:
-        logger.info(f"Profile {index}: Opening profile name in new tab...")
+        logger.info(f"Profile {index}: Opening profile in new tab...")
         
-        # Ctrl+Click on profile name to open in new tab
         open_profile_in_new_tab(profile_name_x, profile_name_y)
         
         logger.info(f"Profile {index}: Switching to new tab...")
@@ -142,10 +135,6 @@ def scrape_profile_full_page(profile_name_x, profile_name_y, index):
         logger.info(f"Profile {index}: Closing tab...")
         pyautogui.hotkey('ctrl', 'w')
         time.sleep(random.uniform(1, 2))
-        
-        # Switch back to main tab
-        pyautogui.hotkey('ctrl', 'shift', 'tab')
-        time.sleep(random.uniform(0.5, 1))
         
         logger.info(f"Profile {index}: Returned to search results")
         
@@ -226,14 +215,13 @@ def main():
     count = 0
     max_profiles = 50
     
-    # Profile name positions (X=400, Y varies)
-    # Based on your screenshot
+    # ADJUSTED COORDINATES - Moved left and down
     profile_positions = [
-        (400, 265),   # Maylin Barcena
-        (400, 390),   # Darien Paez  
-        (400, 535),   # Mariela Perez
-        (400, 645),   # Idelvys Garcia
-        (400, 770),   # Maria Valentina
+        (360, 365),   # Maylin Barcena
+        (360, 490),   # Darien Paez  
+        (360, 635),   # Mariela Perez
+        (360, 745),   # Idelvys Garcia
+        (360, 870),   # Maria Valentina
     ]
     
     idx = 0
