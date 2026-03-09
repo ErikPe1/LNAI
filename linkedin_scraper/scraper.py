@@ -218,10 +218,10 @@ def main():
     # ADJUSTED COORDINATES - Moved left and down
     profile_positions = [
         (360, 365),   # Maylin Barcena
-        (360, 490),   # Darien Paez  
-        (360, 635),   # Mariela Perez
-        (360, 745),   # Idelvys Garcia
-        (360, 870),   # Maria Valentina
+        (424, 515),   # Darien Paez  
+        (423, 692),   # Mariela Perez
+        (423, 856),   # Idelvys Garcia
+        (424, 931),   # Maria Valentina
     ]
     
     idx = 0
