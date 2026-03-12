@@ -1,4 +1,4 @@
-"""LinkedIn Sales Navigator - Full Profile Scraper (Adjusted Coordinates)"""
+"""LinkedIn Sales Navigator - Full Profile Scraper (New Tab Method)"""
 import pyautogui
 import time
 import json
@@ -45,10 +45,7 @@ def on_press(key):
 
 def is_operating_hours():
     now = datetime.now()
-    if now.weekday() >= 5:
-        return False
-    current_time = (now.hour, now.minute)
-    return OPERATING_HOURS["start"] <= current_time <= OPERATING_HOURS["end"]
+    return now.weekday() < 5 and OPERATING_HOURS["start"] <= (now.hour, now.minute) <= OPERATING_HOURS["end"]
 
 def human_mouse_move(x, y):
     current_x, current_y = pyautogui.position()
@@ -64,13 +61,14 @@ def human_mouse_move(x, y):
         time.sleep(random.uniform(0.001, 0.01))
 
 def extract_full_screen():
+    """Extract text from entire screen"""
     try:
         screenshot = pyautogui.screenshot()
         
         if OCR_AVAILABLE:
             text = pytesseract.image_to_string(screenshot)
             lines = [l.strip() for l in text.split('\n') if l.strip()]
-            logger.info(f"Extracted {len(lines)} lines")
+            logger.info(f"Extracted {len(lines)} lines from screen")
             return lines
         else:
             return ["OCR unavailable"]
@@ -78,47 +76,54 @@ def extract_full_screen():
         logger.error(f"Extract error: {e}")
         return []
 
-def open_profile_in_new_tab(profile_name_x, profile_name_y):
-    logger.info(f"Ctrl+Clicking profile at ({profile_name_x}, {profile_name_y})")
+def click_arrow_button(profile_y):
+    """Click the arrow button to open in new tab"""
+    # Arrow button is on the right side of each profile row
+    # Based on your screenshot, it's around x=1415
+    arrow_x = 1415
+    arrow_y = profile_y
     
-    human_mouse_move(profile_name_x, profile_name_y)
+    logger.info(f"Clicking arrow button at ({arrow_x}, {arrow_y})")
+    human_mouse_move(arrow_x, arrow_y)
     time.sleep(random.uniform(0.3, 0.5))
-    
-    # Hold Ctrl and click to open in new tab
-    pyautogui.keyDown('ctrl')
     pyautogui.click()
-    pyautogui.keyUp('ctrl')
-    
-    time.sleep(random.uniform(2, 3))
+    time.sleep(random.uniform(2, 3))  # Wait for new tab to open
 
-def scrape_profile_full_page(profile_name_x, profile_name_y, index):
+def scrape_profile_full_page(profile_y, index):
+    """Open profile in new tab, scrape entire page, close tab"""
     try:
-        logger.info(f"Profile {index}: Opening profile in new tab...")
+        logger.info(f"Profile {index}: Opening in new tab...")
         
-        open_profile_in_new_tab(profile_name_x, profile_name_y)
+        # Click arrow button to open in new tab
+        click_arrow_button(profile_y)
         
+        # Switch to new tab (Ctrl+Tab or click on tab)
         logger.info(f"Profile {index}: Switching to new tab...")
         pyautogui.hotkey('ctrl', 'tab')
-        time.sleep(random.uniform(3, 4))
+        time.sleep(random.uniform(2, 3))
         
+        # Now we're on the profile page - scroll and extract
         logger.info(f"Profile {index}: Scrolling through profile...")
         
         all_text = []
         scroll_count = random.randint(10, 15)
         
         for scroll_num in range(scroll_count):
+            # Extract text at current position
             logger.info(f"Profile {index}: Extracting section {scroll_num + 1}/{scroll_count}...")
             text_lines = extract_full_screen()
             all_text.extend(text_lines)
             
+            # Scroll down
             pyautogui.scroll(-random.randint(300, 500))
             time.sleep(random.uniform(1.0, 1.5))
         
+        # Final extraction at bottom of page
         logger.info(f"Profile {index}: Final extraction...")
         final_text = extract_full_screen()
         all_text.extend(final_text)
         
-        # Remove duplicates
+        # Remove duplicates while preserving order
         unique_text = []
         seen = set()
         for line in all_text:
@@ -132,16 +137,19 @@ def scrape_profile_full_page(profile_name_x, profile_name_y, index):
             "total_lines": len(unique_text)
         }
         
+        # Close the tab (Ctrl+W)
         logger.info(f"Profile {index}: Closing tab...")
         pyautogui.hotkey('ctrl', 'w')
         time.sleep(random.uniform(1, 2))
         
+        # We're back on search results
         logger.info(f"Profile {index}: Returned to search results")
         
         return profile_data
         
     except Exception as e:
         logger.error(f"Error scraping profile {index}: {e}")
+        # Try to close tab if error
         try:
             pyautogui.hotkey('ctrl', 'w')
             time.sleep(1)
@@ -150,6 +158,7 @@ def scrape_profile_full_page(profile_name_x, profile_name_y, index):
         return None
 
 def scroll_main_list():
+    """Scroll main results list"""
     logger.info("Scrolling main list...")
     screen_width = pyautogui.size()[0]
     list_x = int(screen_width * 0.4)
@@ -200,7 +209,7 @@ def main():
     logger.info("="*60)
     logger.info(f"Switch to LinkedIn in {STARTUP_DELAY}s")
     logger.info("Press ESC to stop")
-    logger.info("Ctrl+Click on profile names to open in new tabs")
+    logger.info("Opens profiles in new tabs for full extraction")
     logger.info("="*60)
     
     listener = keyboard.Listener(on_press=on_press)
@@ -215,13 +224,13 @@ def main():
     count = 0
     max_profiles = 50
     
-    # ADJUSTED COORDINATES - Moved left and down
-    profile_positions = [
-        (360, 365),   # Maylin Barcena
-        (424, 515),   # Darien Paez  
-        (423, 692),   # Mariela Perez
-        (423, 856),   # Idelvys Garcia
-        (424, 931),   # Maria Valentina
+    # Y positions of profile rows (where the arrow button is)
+    positions = [
+        280,   # Maylin Barcena
+        380,   # Darien Paez  
+        525,   # Mariela Perez
+        670,   # Idelvys Garcia
+        815,   # Maria Valentina
     ]
     
     idx = 0
@@ -230,10 +239,10 @@ def main():
         if stop_scraping or not is_operating_hours():
             break
         
-        pos_idx = idx % len(profile_positions)
-        x, y = profile_positions[pos_idx]
+        pos_idx = idx % len(positions)
+        profile_y = positions[pos_idx]
         
-        data = scrape_profile_full_page(x, y, count + 1)
+        data = scrape_profile_full_page(profile_y, count + 1)
         
         if data:
             profiles.append(data)
@@ -245,6 +254,7 @@ def main():
         
         idx += 1
         
+        # Scroll to load more profiles after every 5
         if idx % 5 == 0:
             scroll_main_list()
         
