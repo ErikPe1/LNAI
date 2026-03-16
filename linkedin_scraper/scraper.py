@@ -76,54 +76,61 @@ def extract_full_screen():
         logger.error(f"Extract error: {e}")
         return []
 
-def click_arrow_button(profile_y):
-    """Click the arrow button to open in new tab"""
-    # Arrow button is on the right side of each profile row
-    # Based on your screenshot, it's around x=1415
-    arrow_x = 1415
-    arrow_y = profile_y
-    
-    logger.info(f"Clicking arrow button at ({arrow_x}, {arrow_y})")
-    human_mouse_move(arrow_x, arrow_y)
+def take_screenshot_for_reference():
+    """Take a screenshot to identify next profile positions"""
+    try:
+        screenshot = pyautogui.screenshot()
+        timestamp = int(time.time())
+        filename = f"{OUTPUT_DIR}/reference_screenshot_{timestamp}.png"
+        screenshot.save(filename)
+        logger.info(f"Reference screenshot saved: {filename}")
+        return filename
+    except Exception as e:
+        logger.error(f"Screenshot error: {e}")
+        return None
+
+def click_profile_arrow(x, y, index):
+    """Click the arrow button to open profile in new tab"""
+    logger.info(f"Profile {index}: Clicking arrow at ({x}, {y})")
+    human_mouse_move(x, y)
     time.sleep(random.uniform(0.3, 0.5))
     pyautogui.click()
     time.sleep(random.uniform(2, 3))  # Wait for new tab to open
 
-def scrape_profile_full_page(profile_y, index):
+def scrape_profile_full_page(x, y, index):
     """Open profile in new tab, scrape entire page, close tab"""
     try:
         logger.info(f"Profile {index}: Opening in new tab...")
         
-        # Click arrow button to open in new tab
-        click_arrow_button(profile_y)
+        # Click arrow button at exact coordinates
+        click_profile_arrow(x, y, index)
         
-        # Switch to new tab (Ctrl+Tab or click on tab)
+        # Switch to new tab
         logger.info(f"Profile {index}: Switching to new tab...")
         pyautogui.hotkey('ctrl', 'tab')
         time.sleep(random.uniform(2, 3))
         
-        # Now we're on the profile page - scroll and extract
+        # Scroll and extract text
         logger.info(f"Profile {index}: Scrolling through profile...")
         
         all_text = []
         scroll_count = random.randint(10, 15)
         
         for scroll_num in range(scroll_count):
-            # Extract text at current position
             logger.info(f"Profile {index}: Extracting section {scroll_num + 1}/{scroll_count}...")
             text_lines = extract_full_screen()
             all_text.extend(text_lines)
             
             # Scroll down
-            pyautogui.scroll(-random.randint(300, 500))
+            pyautogui.scroll(-random.randint(400, 600))
             time.sleep(random.uniform(1.0, 1.5))
         
-        # Final extraction at bottom of page
+        # Final extraction
         logger.info(f"Profile {index}: Final extraction...")
         final_text = extract_full_screen()
         all_text.extend(final_text)
         
-        # Remove duplicates while preserving order
+        # Remove duplicates
         unique_text = []
         seen = set()
         for line in all_text:
@@ -137,19 +144,17 @@ def scrape_profile_full_page(profile_y, index):
             "total_lines": len(unique_text)
         }
         
-        # Close the tab (Ctrl+W)
+        # Close the tab
         logger.info(f"Profile {index}: Closing tab...")
         pyautogui.hotkey('ctrl', 'w')
         time.sleep(random.uniform(1, 2))
         
-        # We're back on search results
         logger.info(f"Profile {index}: Returned to search results")
         
         return profile_data
         
     except Exception as e:
         logger.error(f"Error scraping profile {index}: {e}")
-        # Try to close tab if error
         try:
             pyautogui.hotkey('ctrl', 'w')
             time.sleep(1)
@@ -224,13 +229,13 @@ def main():
     count = 0
     max_profiles = 50
     
-    # Y positions of profile rows (where the arrow button is)
-    positions = [
-        280,   # Maylin Barcena
-        380,   # Darien Paez  
-        525,   # Mariela Perez
-        670,   # Idelvys Garcia
-        815,   # Maria Valentina
+    # YOUR EXACT COORDINATES - Arrow button positions
+    profile_positions = [
+        (360, 365),   # Maylin Barcena
+        (424, 515),   # Darien Paez  
+        (423, 692),   # Mariela Perez
+        (423, 856),   # Idelvys Garcia
+        (424, 931),   # Maria Valentina
     ]
     
     idx = 0
@@ -239,10 +244,18 @@ def main():
         if stop_scraping or not is_operating_hours():
             break
         
-        pos_idx = idx % len(positions)
-        profile_y = positions[pos_idx]
+        # Get position for current profile
+        pos_idx = idx % len(profile_positions)
+        x, y = profile_positions[pos_idx]
         
-        data = scrape_profile_full_page(profile_y, count + 1)
+        # After first 5 profiles, take screenshot for reference
+        if idx == 5:
+            logger.info("Taking screenshot for next profile positions...")
+            take_screenshot_for_reference()
+            logger.info("Check Account_Outputs/ for reference screenshot")
+            logger.info("Update profile_positions list with new coordinates")
+        
+        data = scrape_profile_full_page(x, y, count + 1)
         
         if data:
             profiles.append(data)
@@ -255,8 +268,14 @@ def main():
         idx += 1
         
         # Scroll to load more profiles after every 5
-        if idx % 5 == 0:
+        if idx > 0 and idx % 5 == 0:
             scroll_main_list()
+            time.sleep(2)  # Wait for new profiles to load
+            
+            # Take screenshot after scrolling to find new positions
+            if idx % 5 == 0:
+                take_screenshot_for_reference()
+                logger.info("Screenshot taken after scrolling - update coordinates if needed")
         
         if count < max_profiles:
             delay = random.randint(MIN_DELAY, MAX_DELAY)
