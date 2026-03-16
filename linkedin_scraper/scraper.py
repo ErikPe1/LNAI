@@ -89,33 +89,42 @@ def take_screenshot_for_reference():
         logger.error(f"Screenshot error: {e}")
         return None
 
-def click_profile_arrow(x, y, index):
-    """Click the arrow button to open profile in new tab"""
-    logger.info(f"Profile {index}: Clicking arrow at ({x}, {y})")
+def open_profile_in_new_tab(x, y, index):
+    """Click arrow button with middle mouse button OR Ctrl+Click to open in new tab"""
+    logger.info(f"Profile {index}: Moving to arrow at ({x}, {y})")
     human_mouse_move(x, y)
-    time.sleep(random.uniform(0.3, 0.5))
-    pyautogui.click()
-    time.sleep(random.uniform(2, 3))  # Wait for new tab to open
+    time.sleep(random.uniform(0.5, 0.8))
+    
+    # Method 1: Middle click (opens in new tab)
+    logger.info(f"Profile {index}: Middle-clicking to open in new tab...")
+    pyautogui.click(button='middle')
+    time.sleep(random.uniform(3, 4))  # Wait for new tab to load
 
 def scrape_profile_full_page(x, y, index):
     """Open profile in new tab, scrape entire page, close tab"""
     try:
         logger.info(f"Profile {index}: Opening in new tab...")
         
-        # Click arrow button at exact coordinates
-        click_profile_arrow(x, y, index)
+        # Open in new tab using middle click
+        open_profile_in_new_tab(x, y, index)
         
-        # Switch to new tab
+        # Switch to the newly opened tab (it should be the last tab)
         logger.info(f"Profile {index}: Switching to new tab...")
-        pyautogui.hotkey('ctrl', 'tab')
+        # Press Ctrl+9 to go to last tab (or Ctrl+Tab)
+        pyautogui.hotkey('ctrl', '9')
         time.sleep(random.uniform(2, 3))
         
-        # Scroll and extract text
-        logger.info(f"Profile {index}: Scrolling through profile...")
+        # Alternative: If that doesn't work, try Ctrl+Tab
+        # pyautogui.hotkey('ctrl', 'tab')
+        # time.sleep(random.uniform(2, 3))
+        
+        # Now we should be on the profile page
+        logger.info(f"Profile {index}: Now on profile page, starting extraction...")
         
         all_text = []
         scroll_count = random.randint(10, 15)
         
+        # Extract text while scrolling
         for scroll_num in range(scroll_count):
             logger.info(f"Profile {index}: Extracting section {scroll_num + 1}/{scroll_count}...")
             text_lines = extract_full_screen()
@@ -125,12 +134,12 @@ def scrape_profile_full_page(x, y, index):
             pyautogui.scroll(-random.randint(400, 600))
             time.sleep(random.uniform(1.0, 1.5))
         
-        # Final extraction
+        # Final extraction at bottom
         logger.info(f"Profile {index}: Final extraction...")
         final_text = extract_full_screen()
         all_text.extend(final_text)
         
-        # Remove duplicates
+        # Remove duplicates while preserving order
         unique_text = []
         seen = set()
         for line in all_text:
@@ -144,36 +153,41 @@ def scrape_profile_full_page(x, y, index):
             "total_lines": len(unique_text)
         }
         
-        # Close the tab
-        logger.info(f"Profile {index}: Closing tab...")
-        pyautogui.hotkey('ctrl', 'w')
-        time.sleep(random.uniform(1, 2))
+        logger.info(f"Profile {index}: Extracted {len(unique_text)} unique lines")
         
-        logger.info(f"Profile {index}: Returned to search results")
+        # Close the tab (Ctrl+W)
+        logger.info(f"Profile {index}: Closing profile tab...")
+        pyautogui.hotkey('ctrl', 'w')
+        time.sleep(random.uniform(1.5, 2.5))
+        
+        # Should automatically return to previous tab (search results)
+        logger.info(f"Profile {index}: Back on search results")
         
         return profile_data
         
     except Exception as e:
         logger.error(f"Error scraping profile {index}: {e}")
+        # Try to close tab if error occurred
         try:
+            logger.info("Attempting to close tab after error...")
             pyautogui.hotkey('ctrl', 'w')
-            time.sleep(1)
+            time.sleep(2)
         except:
             pass
         return None
 
 def scroll_main_list():
     """Scroll main results list"""
-    logger.info("Scrolling main list...")
+    logger.info("Scrolling main list to load more profiles...")
     screen_width = pyautogui.size()[0]
-    list_x = int(screen_width * 0.4)
+    list_x = int(screen_width * 0.3)
     
     pyautogui.moveTo(list_x, 400, duration=0.5)
     time.sleep(0.5)
     
     for _ in range(3):
         pyautogui.scroll(-400)
-        time.sleep(random.uniform(1, 2))
+        time.sleep(random.uniform(1.5, 2.0))
 
 def save_data(profiles):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -214,7 +228,7 @@ def main():
     logger.info("="*60)
     logger.info(f"Switch to LinkedIn in {STARTUP_DELAY}s")
     logger.info("Press ESC to stop")
-    logger.info("Opens profiles in new tabs for full extraction")
+    logger.info("Middle-clicks profiles to open in new tabs")
     logger.info("="*60)
     
     listener = keyboard.Listener(on_press=on_press)
@@ -229,7 +243,7 @@ def main():
     count = 0
     max_profiles = 50
     
-    # YOUR EXACT COORDINATES - Arrow button positions
+    # Arrow button positions for opening profiles
     profile_positions = [
         (360, 365),   # Maylin Barcena
         (424, 515),   # Darien Paez  
@@ -244,16 +258,14 @@ def main():
         if stop_scraping or not is_operating_hours():
             break
         
-        # Get position for current profile
         pos_idx = idx % len(profile_positions)
         x, y = profile_positions[pos_idx]
         
-        # After first 5 profiles, take screenshot for reference
+        # Take reference screenshot after first 5 profiles
         if idx == 5:
             logger.info("Taking screenshot for next profile positions...")
             take_screenshot_for_reference()
             logger.info("Check Account_Outputs/ for reference screenshot")
-            logger.info("Update profile_positions list with new coordinates")
         
         data = scrape_profile_full_page(x, y, count + 1)
         
@@ -264,19 +276,17 @@ def main():
             
             if count % 5 == 0:
                 save_data(profiles)
+                logger.info(f"Progress saved: {count} profiles")
         
         idx += 1
         
-        # Scroll to load more profiles after every 5
+        # Scroll after every 5 profiles to load more
         if idx > 0 and idx % 5 == 0:
             scroll_main_list()
-            time.sleep(2)  # Wait for new profiles to load
-            
-            # Take screenshot after scrolling to find new positions
-            if idx % 5 == 0:
-                take_screenshot_for_reference()
-                logger.info("Screenshot taken after scrolling - update coordinates if needed")
+            time.sleep(2)
+            take_screenshot_for_reference()
         
+        # Delay before next profile
         if count < max_profiles:
             delay = random.randint(MIN_DELAY, MAX_DELAY)
             logger.info(f"[WAIT] {delay}s ({delay/60:.1f}m) before next profile...")
