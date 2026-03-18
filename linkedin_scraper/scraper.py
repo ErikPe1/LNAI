@@ -1,4 +1,4 @@
-"""LinkedIn Sales Navigator - Full Profile Scraper (New Tab Method)"""
+"""LinkedIn Sales Navigator - Screenshot Analysis + New Tab Scraper"""
 import pyautogui
 import time
 import json
@@ -14,6 +14,7 @@ if sys.platform == 'win32':
 
 try:
     import pytesseract
+    from PIL import Image
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
@@ -29,10 +30,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 OPERATING_HOURS = {"start": (9, 0), "end": (16, 30)}
-MIN_DELAY = 60
-MAX_DELAY = 600
 STARTUP_DELAY = 10
 OUTPUT_DIR = "Account_Outputs"
+
+# CONSTANT coordinates for "open in new tab" button
+NEW_TAB_BUTTON_X = 1858
+NEW_TAB_BUTTON_Y = 312
 
 stop_scraping = False
 
@@ -48,17 +51,55 @@ def is_operating_hours():
     return now.weekday() < 5 and OPERATING_HOURS["start"] <= (now.hour, now.minute) <= OPERATING_HOURS["end"]
 
 def human_mouse_move(x, y):
+    """Move mouse with human-like bezier curve"""
     current_x, current_y = pyautogui.position()
-    steps = random.randint(15, 25)
-    ctrl_x = (current_x + x) / 2 + random.randint(-50, 50)
-    ctrl_y = (current_y + y) / 2 + random.randint(-30, 30)
+    steps = random.randint(20, 30)
+    ctrl_x = (current_x + x) / 2 + random.randint(-100, 100)
+    ctrl_y = (current_y + y) / 2 + random.randint(-50, 50)
     
     for i in range(steps):
         t = i / steps
         bx = (1-t)**2 * current_x + 2*(1-t)*t * ctrl_x + t**2 * x
         by = (1-t)**2 * current_y + 2*(1-t)*t * ctrl_y + t**2 * y
         pyautogui.moveTo(bx, by, duration=0.01)
-        time.sleep(random.uniform(0.001, 0.01))
+        time.sleep(random.uniform(0.01, 0.02))
+
+def take_screenshot():
+    """Take and save screenshot"""
+    try:
+        screenshot = pyautogui.screenshot()
+        timestamp = int(time.time())
+        filename = f"{OUTPUT_DIR}/screenshot_{timestamp}.png"
+        screenshot.save(filename)
+        logger.info(f"Screenshot saved: {filename}")
+        return screenshot
+    except Exception as e:
+        logger.error(f"Screenshot error: {e}")
+        return None
+
+def analyze_screenshot_for_profile(screenshot):
+    """Use OCR to find profile names in screenshot"""
+    try:
+        if not OCR_AVAILABLE:
+            logger.warning("OCR not available - returning default position")
+            return (400, 300)
+        
+        # Focus on left side where profile list is (0 to 50% of screen width)
+        width, height = screenshot.size
+        left_panel = screenshot.crop((0, 200, int(width * 0.5), height - 200))
+        
+        text = pytesseract.image_to_string(left_panel)
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        
+        logger.info(f"Found {len(lines)} text lines in profile list")
+        
+        # Return approximate position of first profile name
+        # Typically around y=300 for first profile
+        return (400, 300)
+        
+    except Exception as e:
+        logger.error(f"Screenshot analysis error: {e}")
+        return (400, 300)
 
 def extract_full_screen():
     """Extract text from entire screen"""
@@ -68,7 +109,6 @@ def extract_full_screen():
         if OCR_AVAILABLE:
             text = pytesseract.image_to_string(screenshot)
             lines = [l.strip() for l in text.split('\n') if l.strip()]
-            logger.info(f"Extracted {len(lines)} lines from screen")
             return lines
         else:
             return ["OCR unavailable"]
@@ -76,120 +116,160 @@ def extract_full_screen():
         logger.error(f"Extract error: {e}")
         return []
 
-def take_screenshot_for_reference():
-    """Take a screenshot to identify next profile positions"""
-    try:
-        screenshot = pyautogui.screenshot()
-        timestamp = int(time.time())
-        filename = f"{OUTPUT_DIR}/reference_screenshot_{timestamp}.png"
-        screenshot.save(filename)
-        logger.info(f"Reference screenshot saved: {filename}")
-        return filename
-    except Exception as e:
-        logger.error(f"Screenshot error: {e}")
-        return None
-
-def open_profile_in_new_tab(x, y, index):
-    """Click arrow button with middle mouse button OR Ctrl+Click to open in new tab"""
-    logger.info(f"Profile {index}: Moving to arrow at ({x}, {y})")
-    human_mouse_move(x, y)
-    time.sleep(random.uniform(0.5, 0.8))
+def slow_scroll_profile(duration_minutes):
+    """Scroll slowly through profile for specified duration"""
+    logger.info(f"Slowly scrolling profile for {duration_minutes} minutes...")
     
-    # Method 1: Middle click (opens in new tab)
-    logger.info(f"Profile {index}: Middle-clicking to open in new tab...")
-    pyautogui.click(button='middle')
-    time.sleep(random.uniform(3, 4))  # Wait for new tab to load
+    start_time = time.time()
+    duration_seconds = duration_minutes * 60
+    
+    all_text = []
+    scroll_count = 0
+    
+    while (time.time() - start_time) < duration_seconds:
+        if stop_scraping:
+            break
+        
+        # Extract text at current position
+        text_lines = extract_full_screen()
+        all_text.extend(text_lines)
+        scroll_count += 1
+        
+        # Small scroll
+        scroll_amount = random.randint(-150, -250)
+        pyautogui.scroll(scroll_amount)
+        
+        # Wait between scrolls (15-30 seconds per scroll)
+        wait_time = random.uniform(15, 30)
+        elapsed = time.time() - start_time
+        remaining = duration_seconds - elapsed
+        
+        logger.info(f"Scroll {scroll_count} | Elapsed: {elapsed/60:.1f}m | Remaining: {remaining/60:.1f}m")
+        
+        time.sleep(wait_time)
+    
+    # Remove duplicates
+    unique_text = []
+    seen = set()
+    for line in all_text:
+        if line not in seen:
+            unique_text.append(line)
+            seen.add(line)
+    
+    logger.info(f"Extracted {len(unique_text)} unique lines from profile")
+    return unique_text
 
-def scrape_profile_full_page(x, y, index):
-    """Open profile in new tab, scrape entire page, close tab"""
+def slow_scroll_search_page(duration_minutes):
+    """Scroll slowly on search results page"""
+    logger.info(f"Slowly scrolling search page for {duration_minutes} minutes...")
+    
+    start_time = time.time()
+    duration_seconds = duration_minutes * 60
+    
+    # Focus on left side search results
+    screen_width = pyautogui.size()[0]
+    list_x = int(screen_width * 0.3)
+    list_y = 400
+    
+    pyautogui.moveTo(list_x, list_y, duration=0.5)
+    time.sleep(0.5)
+    
+    scroll_count = 0
+    
+    while (time.time() - start_time) < duration_seconds:
+        if stop_scraping:
+            break
+        
+        scroll_amount = random.randint(-200, -300)
+        pyautogui.scroll(scroll_amount)
+        scroll_count += 1
+        
+        wait_time = random.uniform(10, 20)
+        elapsed = time.time() - start_time
+        remaining = duration_seconds - elapsed
+        
+        logger.info(f"Search scroll {scroll_count} | Elapsed: {elapsed/60:.1f}m | Remaining: {remaining/60:.1f}m")
+        
+        time.sleep(wait_time)
+
+def scrape_profile_with_screenshot(profile_num):
+    """Complete workflow: screenshot → find profile → open tab → scrape → close"""
     try:
-        logger.info(f"Profile {index}: Opening in new tab...")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"PROFILE {profile_num}")
+        logger.info(f"{'='*60}")
         
-        # Open in new tab using middle click
-        open_profile_in_new_tab(x, y, index)
+        # Step 1: Take screenshot and analyze
+        logger.info("Step 1: Taking screenshot to find profile...")
+        screenshot = take_screenshot()
         
-        # Switch to the newly opened tab (it should be the last tab)
-        logger.info(f"Profile {index}: Switching to new tab...")
-        # Press Ctrl+9 to go to last tab (or Ctrl+Tab)
-        pyautogui.hotkey('ctrl', '9')
+        if screenshot:
+            profile_x, profile_y = analyze_screenshot_for_profile(screenshot)
+        else:
+            # Default position if screenshot fails
+            profile_x, profile_y = (400, 300 + (profile_num - 1) * 150)
+        
+        logger.info(f"Target profile name at: ({profile_x}, {profile_y})")
+        
+        # Step 2: Click profile name
+        logger.info("Step 2: Clicking profile name...")
+        human_mouse_move(profile_x, profile_y)
+        time.sleep(random.uniform(0.5, 1.0))
+        pyautogui.click()
         time.sleep(random.uniform(2, 3))
         
-        # Alternative: If that doesn't work, try Ctrl+Tab
-        # pyautogui.hotkey('ctrl', 'tab')
-        # time.sleep(random.uniform(2, 3))
+        # Step 3: Click "open in new tab" button at CONSTANT coordinates
+        logger.info(f"Step 3: Clicking 'Open in new tab' at ({NEW_TAB_BUTTON_X}, {NEW_TAB_BUTTON_Y})...")
+        human_mouse_move(NEW_TAB_BUTTON_X, NEW_TAB_BUTTON_Y)
+        time.sleep(random.uniform(0.3, 0.5))
+        pyautogui.click()
         
-        # Now we should be on the profile page
-        logger.info(f"Profile {index}: Now on profile page, starting extraction...")
+        # Step 4: Wait for tab to load
+        logger.info("Step 4: Waiting for new tab to load...")
+        time.sleep(random.uniform(3, 5))
         
-        all_text = []
-        scroll_count = random.randint(10, 15)
+        # Step 5: Switch to new tab
+        logger.info("Step 5: Switching to new tab...")
+        pyautogui.hotkey('ctrl', 'tab')
+        time.sleep(random.uniform(2, 3))
         
-        # Extract text while scrolling
-        for scroll_num in range(scroll_count):
-            logger.info(f"Profile {index}: Extracting section {scroll_num + 1}/{scroll_count}...")
-            text_lines = extract_full_screen()
-            all_text.extend(text_lines)
-            
-            # Scroll down
-            pyautogui.scroll(-random.randint(400, 600))
-            time.sleep(random.uniform(1.0, 1.5))
-        
-        # Final extraction at bottom
-        logger.info(f"Profile {index}: Final extraction...")
-        final_text = extract_full_screen()
-        all_text.extend(final_text)
-        
-        # Remove duplicates while preserving order
-        unique_text = []
-        seen = set()
-        for line in all_text:
-            if line not in seen:
-                unique_text.append(line)
-                seen.add(line)
+        # Step 6: Slowly scroll through profile (4-8 minutes)
+        profile_duration = random.uniform(4, 8)
+        logger.info(f"Step 6: Scrolling through profile for {profile_duration:.1f} minutes...")
+        profile_text = slow_scroll_profile(profile_duration)
         
         profile_data = {
+            "profile_number": profile_num,
             "timestamp": datetime.now().isoformat(),
-            "text": unique_text,
-            "total_lines": len(unique_text)
+            "text": profile_text,
+            "total_lines": len(profile_text),
+            "time_spent_minutes": profile_duration
         }
         
-        logger.info(f"Profile {index}: Extracted {len(unique_text)} unique lines")
-        
-        # Close the tab (Ctrl+W)
-        logger.info(f"Profile {index}: Closing profile tab...")
+        # Step 7: Close tab
+        logger.info("Step 7: Closing profile tab...")
         pyautogui.hotkey('ctrl', 'w')
-        time.sleep(random.uniform(1.5, 2.5))
+        time.sleep(random.uniform(1, 2))
         
-        # Should automatically return to previous tab (search results)
-        logger.info(f"Profile {index}: Back on search results")
+        # Step 8: Slowly scroll search page (1-3 minutes)
+        search_duration = random.uniform(1, 3)
+        logger.info(f"Step 8: Scrolling search page for {search_duration:.1f} minutes...")
+        slow_scroll_search_page(search_duration)
         
+        logger.info(f"[OK] Profile {profile_num} complete!")
         return profile_data
         
     except Exception as e:
-        logger.error(f"Error scraping profile {index}: {e}")
-        # Try to close tab if error occurred
+        logger.error(f"Error on profile {profile_num}: {e}")
         try:
-            logger.info("Attempting to close tab after error...")
             pyautogui.hotkey('ctrl', 'w')
-            time.sleep(2)
+            time.sleep(1)
         except:
             pass
         return None
 
-def scroll_main_list():
-    """Scroll main results list"""
-    logger.info("Scrolling main list to load more profiles...")
-    screen_width = pyautogui.size()[0]
-    list_x = int(screen_width * 0.3)
-    
-    pyautogui.moveTo(list_x, 400, duration=0.5)
-    time.sleep(0.5)
-    
-    for _ in range(3):
-        pyautogui.scroll(-400)
-        time.sleep(random.uniform(1.5, 2.0))
-
 def save_data(profiles):
+    """Save profiles to JSON and TXT"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     json_file = f"{OUTPUT_DIR}/profiles_{timestamp}.json"
     txt_file = f"{OUTPUT_DIR}/profiles_{timestamp}.txt"
@@ -200,14 +280,15 @@ def save_data(profiles):
         logger.info(f"[OK] JSON: {json_file}")
         
         with open(txt_file, 'w', encoding='utf-8') as f:
-            f.write(f"LinkedIn Profiles - Full Page Extraction\n")
+            f.write(f"LinkedIn Profiles - Slow Scroll Extraction\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Total Profiles: {len(profiles)}\n")
             f.write("="*80 + "\n\n")
             
-            for i, p in enumerate(profiles, 1):
-                f.write(f"PROFILE {i}\n")
+            for p in profiles:
+                f.write(f"PROFILE {p.get('profile_number')}\n")
                 f.write(f"Timestamp: {p.get('timestamp')}\n")
+                f.write(f"Time Spent: {p.get('time_spent_minutes', 0):.1f} minutes\n")
                 f.write(f"Lines Extracted: {p.get('total_lines', 0)}\n")
                 f.write("-"*80 + "\n")
                 
@@ -224,11 +305,12 @@ def main():
     global stop_scraping
     
     logger.info("="*60)
-    logger.info("LinkedIn Sales Navigator - Full Profile Scraper")
+    logger.info("LinkedIn Sales Navigator - Screenshot Analysis Scraper")
     logger.info("="*60)
     logger.info(f"Switch to LinkedIn in {STARTUP_DELAY}s")
     logger.info("Press ESC to stop")
-    logger.info("Middle-clicks profiles to open in new tabs")
+    logger.info(f"New Tab Button: ({NEW_TAB_BUTTON_X}, {NEW_TAB_BUTTON_Y})")
+    logger.info("Profile time: 4-8 minutes | Search time: 1-3 minutes")
     logger.info("="*60)
     
     listener = keyboard.Listener(on_press=on_press)
@@ -240,67 +322,37 @@ def main():
     print("\n")
     
     profiles = []
-    count = 0
+    profile_count = 0
     max_profiles = 50
     
-    # Arrow button positions for opening profiles
-    profile_positions = [
-        (360, 365),   # Maylin Barcena
-        (424, 515),   # Darien Paez  
-        (423, 692),   # Mariela Perez
-        (423, 856),   # Idelvys Garcia
-        (424, 931),   # Maria Valentina
-    ]
-    
-    idx = 0
-    
-    while count < max_profiles:
+    while profile_count < max_profiles:
         if stop_scraping or not is_operating_hours():
             break
         
-        pos_idx = idx % len(profile_positions)
-        x, y = profile_positions[pos_idx]
-        
-        # Take reference screenshot after first 5 profiles
-        if idx == 5:
-            logger.info("Taking screenshot for next profile positions...")
-            take_screenshot_for_reference()
-            logger.info("Check Account_Outputs/ for reference screenshot")
-        
-        data = scrape_profile_full_page(x, y, count + 1)
+        profile_count += 1
+        data = scrape_profile_with_screenshot(profile_count)
         
         if data:
             profiles.append(data)
-            count += 1
-            logger.info(f"[OK] Scraped {count}/{max_profiles} - {data.get('total_lines', 0)} lines")
+            logger.info(f"[OK] Completed {profile_count}/{max_profiles} profiles")
             
-            if count % 5 == 0:
+            # Save every 5 profiles
+            if profile_count % 5 == 0:
                 save_data(profiles)
-                logger.info(f"Progress saved: {count} profiles")
-        
-        idx += 1
-        
-        # Scroll after every 5 profiles to load more
-        if idx > 0 and idx % 5 == 0:
-            scroll_main_list()
-            time.sleep(2)
-            take_screenshot_for_reference()
-        
-        # Delay before next profile
-        if count < max_profiles:
-            delay = random.randint(MIN_DELAY, MAX_DELAY)
-            logger.info(f"[WAIT] {delay}s ({delay/60:.1f}m) before next profile...")
-            time.sleep(delay)
     
+    # Final save
     save_data(profiles)
-    logger.info(f"[DONE] {count} profiles saved to {OUTPUT_DIR}/")
+    logger.info(f"\n[DONE] {profile_count} profiles saved to {OUTPUT_DIR}/")
     listener.stop()
 
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
     if not OCR_AVAILABLE:
         logger.warning("Install OCR: pip install pytesseract pillow")
+    
     if not is_operating_hours():
         logger.error("Not within hours (Mon-Fri 9am-4:30pm)")
         exit(1)
+    
     main()
