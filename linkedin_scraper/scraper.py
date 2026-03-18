@@ -82,11 +82,11 @@ def get_profile_card_coordinates(profile_num):
     
     # Exact profile card positions from provided screenshots
     profile_positions = [
-        (424, 365),   # Profile 1 - Maylin Barcena
-        (424, 515),   # Profile 2 - Darien Paez  
-        (423, 692),   # Profile 3 - Mariela Perez
-        (423, 856),   # Profile 4 - Idelvys Garcia
-        (424, 931),   # Profile 5 - Maria Valentina
+        (420, 365),   # Profile 1 - Maylin Barcena
+        (420, 515),   # Profile 2 - Darien Paez  
+        (420, 692),   # Profile 3 - Mariela Perez
+        (420, 856),   # Profile 4 - Idelvys Garcia
+        (420, 931),   # Profile 5 - Maria Valentina
     ]
     
     # Cycle through positions (after 5 profiles, scroll and repeat)
