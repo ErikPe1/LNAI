@@ -16,19 +16,48 @@ Automated LinkedIn profile scraping with intelligent scheduling and data extract
 - ✅ Duplicate prevention
 - ✅ Robust error handling and logging
 
+## Installation
+
+### Prerequisites
+- Python 3.9 or higher
+- Chrome browser
+- LinkedIn account
+
+### Install from source
+
+```bash
+# Clone the repository
+git clone https://github.com/ErikPe1/LNAI.git
+cd LNAI
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Or install in development mode (recommended for development)
+pip install -e .
+
+# Or install with development tools
+pip install -e ".[dev]"
+```
+
 ## Quick Start
 
 ```bash
-# Install dependencies
-cd linkedin_scraper
+# Install the package
 pip install -r requirements.txt
 
+# Or install in development mode
+pip install -e .
+
 # Configure credentials
-cp .env.example .env
+cp linkedin_scraper/.env.example .env
 # Edit .env with your LinkedIn credentials
 
 # Run the scraper
 python -m linkedin_scraper.scraper
+
+# Or run tests
+python linkedin_scraper/test_scraper.py
 ```
 
 ## Documentation
