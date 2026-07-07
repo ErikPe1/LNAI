@@ -183,6 +183,46 @@ class LinkedInScraper:
         logger.info(f"Waiting {delay} seconds before next profile...")
         time.sleep(delay)
 
+    def _click_profile_at_coordinates(self) -> bool:
+        """
+        Click the configured profile rectangle by viewport coordinates.
+
+        Returns:
+            True if click was attempted successfully, False otherwise.
+        """
+        if not config.USE_PROFILE_CLICK_COORDINATES:
+            return False
+
+        try:
+            clicked = self.driver.execute_script(
+                """
+                const x = arguments[0];
+                const y = arguments[1];
+                const el = document.elementFromPoint(x, y);
+                if (!el) {
+                    return false;
+                }
+                el.click();
+                return true;
+                """,
+                config.PROFILE_CLICK_X,
+                config.PROFILE_CLICK_Y
+            )
+            if clicked:
+                logger.info(
+                    f"Clicked profile rectangle at X={config.PROFILE_CLICK_X}, Y={config.PROFILE_CLICK_Y}"
+                )
+                time.sleep(random.uniform(config.CLICK_DELAY_MIN, config.CLICK_DELAY_MAX))
+                return True
+
+            logger.warning(
+                f"No element found at X={config.PROFILE_CLICK_X}, Y={config.PROFILE_CLICK_Y}"
+            )
+            return False
+        except Exception as e:
+            logger.error(f"Error clicking at configured coordinates: {e}")
+            return False
+
     def _get_profile_links(self, search_url: str, max_links: int = 50) -> List[str]:
         """
         Extract profile links from search results or feed.
@@ -201,6 +241,12 @@ class LinkedInScraper:
             time.sleep(random.uniform(3, 5))
 
             profile_links = set()
+            self._click_profile_at_coordinates()
+
+            current_url = self.driver.current_url.split('?')[0].rstrip('/')
+            if '/in/' in current_url and current_url not in self.scraped_urls:
+                profile_links.add(current_url)
+
             scroll_attempts = 0
             max_scroll_attempts = 10
 

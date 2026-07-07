@@ -39,6 +39,11 @@ SCRAPED_URLS_FILE = os.path.join(DATA_DIR, 'scraped_urls.txt')
 HEADLESS_MODE = os.getenv('HEADLESS_MODE', 'False').lower() == 'true'
 BROWSER_TIMEOUT = 30
 
+# Coordinate-based profile opening (viewport coordinates)
+USE_PROFILE_CLICK_COORDINATES = os.getenv('USE_PROFILE_CLICK_COORDINATES', 'True').lower() == 'true'
+PROFILE_CLICK_X = int(os.getenv('PROFILE_CLICK_X', '1847'))
+PROFILE_CLICK_Y = int(os.getenv('PROFILE_CLICK_Y', '190'))
+
 # Logging
 LOG_FILE = os.path.join(DATA_DIR, 'scraper.log')
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
